@@ -190,8 +190,18 @@ private:
         ast = qualified_identifier;
     }
 
-    void visit(ASTFunction & function, ASTPtr &) const
+    void visit(ASTFunction & function, ASTPtr & ast) const
     {
+        /// Replace currentDatabase() function with literal value for SELECT queries
+        /// This is important for distributed queries where currentDatabase() should be
+        /// evaluated on the initiator, not on remote shards (issue #93193).
+        /// Function name is already normalized to "currentDatabase" at this point.
+        if (function.name == "currentDatabase")
+        {
+            ast = std::make_shared<ASTLiteral>(database_name);
+            return;
+        }
+
         bool is_operator_in = functionIsInOrGlobalInOperator(function.name);
         bool is_dict_get = functionIsDictGet(function.name);
 
